@@ -1,26 +1,21 @@
 from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
 import psycopg2
 import os
-from database import engine, get_db, Base
+from sqlmodel import SQLModel,Session, select
+from database import engine, get_db
+import models
 
-Base.metadata.create_all(bind=engine)
+SQLModel.metadata.create_all(engine)
 
 app = FastAPI()
 
 @app.get("/")
-def readDb(db: Session = Depends(get_db)):
+def checkConnection(db: Session = Depends(get_db)):
     try:
-        conn = psycopg2.connect(
-            host="my-db", 
-            database=os.getenv("POSTGRES_DB"),
-            user=os.getenv("POSTGRES_USER"),
-            password=os.getenv("POSTGRES_PASSWORD")
-        )
-        return {"status": "Connected to Database!"}
+        db.exec(select(1)) 
+        return {"status": "Connected to Database via SQLModel!"}
     except Exception as e:
         return {"error": str(e)}
-
 @app.post("/pipelines")
 async def showPipelines(db: Session= Depends(get_db)):
     pass
