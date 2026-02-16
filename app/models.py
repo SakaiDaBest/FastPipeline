@@ -1,29 +1,43 @@
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 from typing import Optional, List
+from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
 
-class Pipelines(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key = True)
+class PipelineBase(SQLModel):
+    # id: UUID = Field(default_factory=uuid4, primary_key = True)
     name: str = Field(max_length=255)
     source_type: str = Field(max_length=50)
     source_path: str 
     destination_type: str = Field(max_length=50)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # created_at: datetime = Field(default_factory=datetime.utcnow)
     
+    # jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+class PipelineCreate(PipelineBase):
+    pass
+
+class Pipelines(PipelineBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
-class Jobs(SQLModel, table=True):
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
+class JobBase(SQLModel):
     status: str = Field(default="pending", max_length=20)
+    records_processed: int = Field(default=0)
+
+class JobCreate(JobBase):
+    pass # What the user sends
+
+class Jobs(JobBase, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     started_at: Optional[datetime] = Field(default=None)
     finished_at: Optional[datetime] = Field(default=None)
-    records_processed: int = Field(default=0)
     error_message: Optional[str] = Field(default=None)
 
     pipeline_id: UUID = Field(foreign_key="pipelines.id")
-    
     pipeline: Pipelines = Relationship(back_populates="jobs")
+
+
 
 
 # from pydantic import BaseModel

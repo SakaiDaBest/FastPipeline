@@ -4,7 +4,7 @@ import psycopg2
 import os
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from .database import engine, get_db
-from .models import Pipelines, Jobs
+from .models import Pipelines, PipelineCreate, Jobs, JobCreate
 from uuid import UUID
 
 SQLModel.metadata.create_all(engine)
@@ -20,23 +20,25 @@ def checkConnection(db: Session = Depends(get_db)):
         return {"error": str(e)}
 
 @app.post("/pipelines")
-async def createPipelines(pipeline: Pipelines, db: Session= Depends(get_db)) -> Pipelines:
-    db.add(pipeline)
+async def createPipelines(pipeline_data: PipelineCreate, db: Session= Depends(get_db)) -> Pipelines:
+    db_pipeline = Pipelines.model_validate(pipeline_data)
+
+    db.add(db_pipeline)
     db.commit()
-    db.refresh(pipeline)
-    return pipeline
+    db.refresh(db_pipeline)
+    return db_pipeline
 
 @app.get("/pipelines")
 async def getPipelines(db: Session = Depends(get_db), offset: int=0, limit: int = Query(default=100, le=100),) -> Sequence[Pipelines]:
     pipelines = db.exec(select(Pipelines).offset(offset).limit(limit)).all()
     return pipelines
 
-@app.get("/pipelines/{id}")
+@app.get("/pipelines/{pipe_id}")
 async def getPipeline(pipe_id: UUID, db: Session= Depends(get_db)):
     pipelines = db.exec(select(Pipelines).where(Pipelines.id == pipe_id)).all()
     return pipelines
 
-@app.delete("/pipelines/{id}")
+@app.delete("/pipelines/{pipe_id}")
 async def deletePipeline(pipe_id: UUID, db: Session= Depends(get_db)):
     pipeline = db.get(Pipelines, pipe_id)
     if not pipeline:
@@ -44,3 +46,18 @@ async def deletePipeline(pipe_id: UUID, db: Session= Depends(get_db)):
     db.delete(pipeline)
     db.commit()
     return {"ok": True}
+
+@app.post("/pipelines/{pipe_id}/job")
+async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get_db)) -> Jobs:
+    pipeline = db.get(Pipelines, pipe_id)
+
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline not Found")
+
+    db_job = Jobs.model_validate(job_data, update={"pipeline_id": pipe_id})
+
+    db.add(db_job)
+    db.commit()
+    db.refresh(db_job)
+    return db_job
+
