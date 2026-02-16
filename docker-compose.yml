@@ -17,9 +17,10 @@ services:
     volumes:
       - .:/code
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - PYTHONPATH=/code # <--- ADD THIS LINE
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:
