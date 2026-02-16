@@ -1,5 +1,7 @@
 fastapi
-uvicorn
+uvicorn[standard]
+sqlmodel
 psycopg2-binary
-sqlalchemy
-pydantic[email]
+passlib[bcrypt]
+pydantic-settings
+email-validator
