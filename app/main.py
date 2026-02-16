@@ -47,7 +47,7 @@ async def deletePipeline(pipe_id: UUID, db: Session= Depends(get_db)):
     db.commit()
     return {"ok": True}
 
-@app.post("/pipelines/{pipe_id}/job")
+@app.post("/pipelines/{pipe_id}/run")
 async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get_db)) -> Jobs:
     pipeline = db.get(Pipelines, pipe_id)
 
@@ -61,3 +61,12 @@ async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get
     db.refresh(db_job)
     return db_job
 
+@app.get("/pipelines/{pipe_id}/jobs")
+async def getJobs(pipe_id: UUID, db: Session= Depends(get_db)):
+    pipelines = db.exec(select(Jobs).where(Jobs.pipeline_id==pipe_id)).all()
+    return pipelines
+
+@app.get("/jobs/{job_id}")
+async def jobStatus(job_id: UUID, db: Session = Depends(get_db)):
+    job = db.exec(select(Jobs.status).where(Jobs.id==job_id)).all()
+    return job
