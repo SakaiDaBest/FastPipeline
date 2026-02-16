@@ -6,6 +6,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from .database import engine, get_db
 from .models import Pipelines, PipelineCreate, Jobs, JobCreate
 from uuid import UUID
+from .services.etl import run_pipeline
 
 SQLModel.metadata.create_all(engine)
 
