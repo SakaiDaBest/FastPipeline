@@ -1,7 +1,5 @@
 from typing import Sequence
 from fastapi import FastAPI, Depends, Query, HTTPException
-import psycopg2
-import os
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from .database import engine, get_db
 from .models import Pipelines, PipelineCreate, Jobs, JobCreate
@@ -23,7 +21,6 @@ def checkConnection(db: Session = Depends(get_db)):
 @app.post("/pipelines")
 async def createPipelines(pipeline_data: PipelineCreate, db: Session= Depends(get_db)) -> Pipelines:
     db_pipeline = Pipelines.model_validate(pipeline_data)
-
     db.add(db_pipeline)
     db.commit()
     db.refresh(db_pipeline)
@@ -56,10 +53,13 @@ async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get
         raise HTTPException(status_code=404, detail="Pipeline not Found")
 
     db_job = Jobs.model_validate(job_data, update={"pipeline_id": pipe_id})
-
+    job_id = db_job.id
+    pipe_id = db_job.pipeline_id
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
+    await run_pipeline(pipe_id, job_id, db)
+
     return db_job
 
 @app.get("/pipelines/{pipe_id}/jobs")
