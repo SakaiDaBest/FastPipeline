@@ -8,3 +8,5 @@ def cleanOrders(df):
     if 'total_amount' in df.columns:
         df['total_amount'] = df['total_amount'].str.extract(r'(\d+\.?\d*)').astype(float)
     df.drop_duplicates(subset=None, keep='first', inplace=False, ignore_index=False)
+
+    return df
