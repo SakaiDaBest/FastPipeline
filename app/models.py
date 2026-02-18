@@ -20,13 +20,12 @@ class Pipelines(PipelineBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-
+    
 class JobBase(SQLModel):
-    status: str = Field(default="pending", max_length=20)
-    records_processed: int = Field(default=0)
+    pass
 
 class JobCreate(JobBase):
-    pass # What the user sends
+    pass 
 
 class Jobs(JobBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
@@ -36,6 +35,8 @@ class Jobs(JobBase, table=True):
 
     pipeline_id: UUID = Field(foreign_key="pipelines.id")
     pipeline: Pipelines = Relationship(back_populates="jobs")
+    status: str = Field(default="pending", max_length=20)
+    records_processed: int = Field(default=0)
 
 
 
