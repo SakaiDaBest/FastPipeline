@@ -2,7 +2,6 @@ import pandas as pd
 import datetime as dt
 
 def cleanCustomers(df):
-    print("Transforming...")
     if 'name' in df.columns:
         df['name'] = df['name'].str.strip().str.title()
 
@@ -19,8 +18,8 @@ def cleanCustomers(df):
         df['email'] = df['email'].str.lower()
     
     if 'signup_date' in df.columns:
-        df['signup_date'] = pd.to_datetime(df['signup_date'], errors='coerce', dayfirst=False)
-        df['signup_date'] = df['signup_date'].dt.strftime('YYYY-MM-DD')
+        df['signup_date'] = pd.to_datetime(df['signup_date'],format='mixed', errors='coerce', dayfirst=False)
+        df['signup_date'] = df['signup_date'].dt.strftime('%Y-%m-%d')
     
     return df
 
