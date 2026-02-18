@@ -1,0 +1,7 @@
+customer_id,name,email,signup_date,country
+1,Alice Tan,alice@email.com,2024-01-12,Malaysia
+2,Bob Lee,bob.lee@email.com,2024-12-02,Malaysia
+3,Chong Wei,,2024-03-05,Singapore
+4,Nur Aisyah,aisyah@email.com,2024-03-07,Malaysia
+5,John O'Neil,john@email.com,2024-03-09,Usa
+6,Siti Aminah,siti@email.com,2024-03-11,Malaysia
