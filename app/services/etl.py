@@ -1,17 +1,14 @@
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Session
 from ..models import Jobs, Pipelines
-from ..database import get_db, engine
+from ..database import engine
 from uuid import UUID
 from datetime import datetime
 from .extract.extract import read_csv
 from .transform.customers import cleanCustomers
 from .transform.orders import cleanOrders
 from .transform.products import cleanProducts
-import numpy as np
-from fastapi import Depends
-import pandas as pd
 
-async def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session): 
+def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session): 
 
     pipeline = db.get(Pipelines, pipe_id)
     if not pipeline:

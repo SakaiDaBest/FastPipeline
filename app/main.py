@@ -1,5 +1,5 @@
 from typing import Sequence
-from fastapi import FastAPI, Depends, Query, HTTPException
+from fastapi import FastAPI, Depends, Query, HTTPException, BackgroundTasks
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 from .database import engine, get_db
 from .models import Pipelines, PipelineCreate, Jobs, JobCreate
@@ -46,7 +46,7 @@ async def deletePipeline(pipe_id: UUID, db: Session= Depends(get_db)):
     return {"ok": True}
 
 @app.post("/pipelines/{pipe_id}/run")
-async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get_db)) -> Jobs:
+async def createJob(pipe_id: UUID, job_data: JobCreate, background_tasks: BackgroundTasks, db: Session= Depends(get_db)) -> Jobs:
     pipeline = db.get(Pipelines, pipe_id)
 
     if not pipeline:
@@ -58,7 +58,7 @@ async def createJob(pipe_id: UUID, job_data: JobCreate, db: Session= Depends(get
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
-    await run_pipeline(pipe_id, job_id, db)
+    background_tasks.add_task(run_pipeline, pipe_id,job_id,db)
 
     return db_job
 
