@@ -6,3 +6,5 @@ passlib[bcrypt]
 pydantic-settings
 email-validator
 routers
+pandas
+numpy
