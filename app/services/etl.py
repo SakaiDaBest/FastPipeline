@@ -11,41 +11,54 @@ import numpy as np
 from fastapi import Depends
 import pandas as pd
 
-async def run_pipeline(path_id: UUID,job_id:UUID, db: Session=Depends(get_db)):
-    sPath=db.exec(select(Pipelines.source_path).where(Pipelines.id==path_id))
-    sType=db.exec(select(Pipelines.source_type).where(Pipelines.id==path_id))
-    dPath=db.exec(select(Pipelines.destination_type).where(Pipelines.id==path_id))
-    pipeName=db.exec(select(Pipelines.name).where(Pipelines.id==path_id))
+async def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session): 
 
+    pipeline = db.get(Pipelines, pipe_id)
+    if not pipeline:
+        print("Pipeline not found")
+        return
 
-    job_started_at = db.exec(select(Jobs.started_at).where(Jobs.id==job_id)).one()
-    job_started_at = datetime.utcnow
-    db.add(job_started_at)
+    job = db.get(Jobs, job_id)
+    if not job:
+        print("Job not found")
+        return
+
+    job.status = "running"
+    job.started_at = datetime.utcnow() 
+    db.add(job)
     db.commit()
-    db.refresh(job_started_at)
 
-    match sType:
-        case "CSV":
-            df = read_csv(sPath)
-        case _:
-            print("This Type is not Supported")
-            return
-            
+    try:
+        match pipeline.source_type:
+            case "CSV":
+                df = read_csv(pipeline.source_path)
+                
+                if pipeline.name == "orders":
+                    df = cleanOrders(df)
+                elif pipeline.name == "customers":
+                    df = cleanCustomers(df)
+                elif pipeline.name == "products":
+                    df = cleanProducts(df)
+                
+                if pipeline.destination_type == "postgres":
+                    df.to_sql(pipeline.name, con=engine, if_exists='replace', index=False)
+                elif pipeline.destination_type == "CSV":
+                    df.to_csv(f"./data/transformed/{pipeline.name}.csv", index=False)
+
+                job.status = "success"
+                job.records_processed = len(df) 
+                
+            case _:
+                job.status = "failed"
+                job.error_message = "Source Type Not Supported"
     
-    print("Transforming...")
-    if pipeName == "orders":
-        cleanOrders(df)
-    elif pipeName == "customers":
-        cleanCustomers(df)
-    elif pipeName == "prodcuts":
-        cleanProducts(df)
-    
-    print(f"Loading into {dPath}")
-    if dPath == "postgres":
-        df.to_sql(f'{pipeName}', con=engine, if_exists='replace', index=False)
-    elif dPath == "CSV":
-        df.to_csv("~/Documents/Projects/FastPipeline/data/transformed/", index=False)
+    except Exception as e:
+        job.status = "failed"
+        job.error_message = str(e)
 
-
+    job.finished_at = datetime.utcnow()
+    db.add(job)
+    db.commit()
+    db.refresh(job)
 
     
