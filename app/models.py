@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 class PipelineBase(SQLModel):
     # id: UUID = Field(default_factory=uuid4, primary_key = True)
@@ -18,7 +19,9 @@ class PipelineCreate(PipelineBase):
 
 class Pipelines(PipelineBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
+    )
     jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     
 class JobBase(SQLModel):
