@@ -1,8 +1,6 @@
 import logging
-from typing import Sequence
 from fastapi import FastAPI, Depends, Query, HTTPException, BackgroundTasks
-from numpy import where
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, select
 from .database import engine, get_db
 from .models import Pipelines, PipelineCreate, Jobs, JobCreate
 from uuid import UUID
