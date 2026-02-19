@@ -59,13 +59,19 @@ def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session):
                 try:
                     if pipeline.name.lower() == "orders":
                         logger.info("Pipeline Name has been Verified")
+                        logger.info("Cleaning Now")
                         df = cleanOrders(df)
+                        logger.info("Cleaning has Completed")
                     elif pipeline.name.lower() == "customers":
                         logger.info("Pipeline Name has been Verified")
+                        logger.info("Cleaning Now")
                         df = cleanCustomers(df)
+                        logger.info("Cleaning has Completed")
                     elif pipeline.name.lower() == "products":
                         logger.info("Pipeline Name has been Verified")
+                        logger.info("Cleaning Now")
                         df = cleanProducts(df)
+                        logger.info("Cleaning has Completed")
                     else: 
                         logger.error(f"Pipeline Name does not match with available options")
                         raise HTTPException(status_code=405, detail="Pipeline Not Accepted!")
