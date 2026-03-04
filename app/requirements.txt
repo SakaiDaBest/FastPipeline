@@ -8,3 +8,8 @@ email-validator
 routers
 pandas
 numpy
+typing-extensions
+typing
+alembic
+sqlalchemy
+asyncpg
