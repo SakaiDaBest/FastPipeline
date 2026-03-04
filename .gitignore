@@ -1,4 +1,33 @@
-.env
+# Byte-compiled / optimized / DLL files
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Environments & Secrets
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# Docker & Database
+# Ignore the actual data stored by Postgres so it doesn't enter version control
+pqdata/
 pgdata/
+
+# Alembic
+# Usually, we keep the versions, but ignore the cache
+migrations/__pycache__/
+
+# OS generated files
 .DS_Store
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+# Local data (since you have a /data folder)
+data/transformed/
+data/raw/*.csv
