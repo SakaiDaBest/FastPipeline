@@ -7,7 +7,11 @@ import json
 import atexit
 
 
+
 def setup_logging():
+    log_dir = pathlib.Path("/code/logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+
     script_dir = pathlib.Path(__file__).parent
     config_file = script_dir / "config.json"
 
