@@ -41,10 +41,9 @@
       "respect_handler_level": true
     }
   },
-  "loggers": {
-    "root": {
-      "level": "DEBUG",
-      "handlers": ["queue_handler"]
-    }
-  }
+  "root": {
+    "level": "DEBUG",
+    "handlers": ["queue_handler"]
+  },
+  "loggers": {}
 }

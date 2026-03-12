@@ -6,24 +6,35 @@ from .models import Pipelines, PipelineCreate, Jobs, JobCreate
 from uuid import UUID
 from .services.etl import run_pipeline
 from .logs import setup_logging
+from contextlib import asynccontextmanager
 
-setup_logging()
-logger = logging.getLogger("pipeline")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    queue_handler = setup_logging()
+    logger = logging.getLogger("pipeline")
+    
+    try:
+        SQLModel.metadata.create_all(engine)
+        logger.info("Database schemas verified/created successfully.")
+    except Exception:
+        logger.exception("FATAL: Failed to initialize database schemas")
+        raise
 
-logger.info("Initializing API and Database schemas...")
-try:
-    SQLModel.metadata.create_all(engine)
-    logger.info("Database schemas verified/created successfully.")
-except Exception:
-    logger.exception("FATAL: Failed to initialize database schemas on startup")
-    raise
+    logger.info("Initializing API and Database schemas...")
+    
+    yield  
+    
 
-app = FastAPI()
+    if queue_handler is not None:
+        queue_handler.listener.stop()
+
+app = FastAPI(lifespan=lifespan)
+logger = logging.getLogger("pipeline") 
 
 @app.get("/")
 def checkConnection(db: Session = Depends(get_db)):
     try:
-        # DEBUG: Good for high-frequency health checks
         logger.debug("Healthcheck: Probing database connection")
         db.exec(select(1))
         return {"status": "Connected to Database!"}
