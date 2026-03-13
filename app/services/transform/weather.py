@@ -1,45 +1,44 @@
 import openmeteo_requests
-
+from datetime import datetime
 import pandas as pd
 import requests_cache
 from retry_requests import retry
 
-# Setup the Open-Meteo API client with cache and retry on error
-cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
-retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
-openmeteo = openmeteo_requests.Client(session = retry_session)
-
-# Make sure all required weather variables are listed here
-# The order of variables in hourly or daily is important to assign them correctly below
-url = "https://api.open-meteo.com/v1/forecast"
-params = {
-	"latitude": 2.5,
-	"longitude": 112.5,
-	"hourly": "temperature_2m",
-	"timezone": "Asia/Singapore",
+FIELD_MAP = {
+    "temperature_2m": "temperature",
+    "relativehumidity_2m": "humidity",
+    "precipitation": "precipitation"
 }
-responses = openmeteo.weather_api(url, params=params)
 
-# Process first location. Add a for-loop for multiple locations or weather models
-response = responses[0]
-print(f"Coordinates: {response.Latitude()}°N {response.Longitude()}°E")
-print(f"Elevation: {response.Elevation()} m asl")
-print(f"Timezone: {response.Timezone()}{response.TimezoneAbbreviation()}")
-print(f"Timezone difference to GMT+0: {response.UtcOffsetSeconds()}s")
+def cleanWeather(url, params):
+    cache_session = requests_cache.CachedSession('.cache', expire_after=3600)
+    retry_session = retry(cache_session, retries=5, backoff_factor=0.2)
+    openmeteo = openmeteo_requests.Client(session=retry_session)
 
-# Process hourly data. The order of variables needs to be the same as requested.
-hourly = response.Hourly()
-hourly_temperature_2m = hourly.Variables(0).ValuesAsNumpy()
+    response = openmeteo.weather_api(url, params=params)[0]
 
-hourly_data = {"date": pd.date_range(
-	start = pd.to_datetime(hourly.Time() + response.UtcOffsetSeconds(), unit = "s", utc = True),
-	end =  pd.to_datetime(hourly.TimeEnd() + response.UtcOffsetSeconds(), unit = "s", utc = True),
-	freq = pd.Timedelta(seconds = hourly.Interval()),
-	inclusive = "left"
-)}
+    hourly = response.Hourly()
 
-hourly_data["temperature_2m"] = hourly_temperature_2m
+    hourly_data = {"timestamp": pd.date_range(
+        start = pd.to_datetime(hourly.Time() + response.UtcOffsetSeconds(), unit = "s", utc = True),
+        end =  pd.to_datetime(hourly.TimeEnd() + response.UtcOffsetSeconds(), unit = "s", utc = True),
+        freq = pd.Timedelta(seconds = hourly.Interval()),
+        inclusive = "left"
+    )}
 
-hourly_dataframe = pd.DataFrame(data = hourly_data)
-hourly_dataframe.to_csv("./test.csv", index=False)
-print("\nHourly data\n", hourly_dataframe)
+
+    requested_fields = params["hourly"]
+    if isinstance(requested_fields, str):
+        requested_fields = requested_fields.replace(" ", "").split(",")
+
+
+
+    for i, field in enumerate(requested_fields):
+        column_name = FIELD_MAP.get(field, field)
+        
+        hourly_data[column_name] = hourly.Variables(i).ValuesAsNumpy()
+
+    df = pd.DataFrame(data=hourly_data)
+    df = df.round(2)
+    df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M')
+    return df
