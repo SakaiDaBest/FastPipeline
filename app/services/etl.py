@@ -8,6 +8,7 @@ from .extract.extract import read_csv
 from .transform.customers import cleanCustomers
 from .transform.orders import cleanOrders
 from .transform.products import cleanProducts
+from .transform.weather import cleanWeather
 from zoneinfo import ZoneInfo
 import logging
 
@@ -49,10 +50,10 @@ def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session):
             case "CSV":
                 try:
                     logger.debug("Reading Source Path for CSV File")
-                    df = read_csv(pipeline.source_path)
+                    df = read_csv(pipeline.source_config["path"])
                 except Exception:
-                    logger.exception(f"{pipeline.source_path} cannot be found or File is not a CSV!")
-                    raise HTTPException(status_code=404, detail=f"Source Path {pipeline.source_path} cannot be found or File is not a CSV!")
+                    logger.exception(f"{pipeline.source_config["path"]} cannot be found or File is not a CSV!")
+                    raise HTTPException(status_code=404, detail=f"Source Path {pipeline.source_config["path"]} cannot be found or File is not a CSV!")
                 logger.info("Source Path verified and read")
                 
                 logger.debug("Verifying Pipeline Name")
@@ -82,7 +83,39 @@ def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session):
                 logger.debug("Verifying Pipeline Destination")
 
                 if pipeline.destination_type == "postgres":
-                    db_name=pipeline.name+"-"+str(job_id)
+                    db_name = pipeline.destination_config["table"]
+                    if db_name == None:
+                        db_name=pipeline.name+"-"+str(job_id)
+                elif pipeline.destination_type == "CSV":
+                    logger.info(f"Saving to CSV")
+                    df.to_csv(f"./data/transformed/{pipeline.name}-{job.id}.csv", index=False)
+                else:
+                    logger.error(f"Pipeline Destination Path does not match with available options")
+                    raise HTTPException(status_code=405, detail="Pipeline Destination Not Accepted!")
+                
+                logger.info("Job has Completed")
+
+                job.status = "success"
+                job.records_processed = len(df) 
+            
+            case "API":
+                try:
+                    if pipeline.name == "weather":                       
+                        url = pipeline.source_config["url"]
+                        params = pipeline.source_config["params", {}]
+                        df = cleanWeather(url, params)
+                    else: 
+                        logger.error(f"Pipeline Name does not match with available options")
+                        raise HTTPException(status_code=405, detail="Pipeline Not Accepted!")
+                except Exception:
+                    logger.exception(f"Internal Server Error")
+                    raise HTTPException(status_code=500, detail="An Internal Error has Occured")
+
+                if pipeline.destination_type == "postgres":
+                    db_name = pipeline.destination_config["table"]
+                    if db_name == None:
+                        db_name=pipeline.name+"-"+str(job_id)
+
                     logger.info("Saving to Database")
                     df.to_sql(db_name, con=engine, if_exists='replace', index=False)
                 elif pipeline.destination_type == "CSV":
@@ -96,7 +129,9 @@ def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session):
 
                 job.status = "success"
                 job.records_processed = len(df) 
-                
+
+
+
             case _:
                 job.status = "failed"
                 job.error_message = "Source Type Not Supported"
@@ -119,4 +154,5 @@ def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session):
         raise HTTPException(status_code=500, detail="Internal Server Error")
     
 
-    
+
+
