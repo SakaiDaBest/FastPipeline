@@ -13,3 +13,12 @@ typing
 alembic
 sqlalchemy
 asyncpg
+alembic
+pydantic
+httpx
+requests
+requests-cache
+retry-requests
+openmeteo-requests
+python-dotenv
+pandas
