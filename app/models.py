@@ -1,18 +1,18 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
+from sqlalchemy import Column, JSON
 from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 class PipelineBase(SQLModel):
-    # id: UUID = Field(default_factory=uuid4, primary_key = True)
     name: str = Field(max_length=255)
+
     source_type: str = Field(max_length=50)
-    source_path: str 
+    source_config: Dict = Field(default={}, sa_column=Column(JSON))
+
     destination_type: str = Field(max_length=50)
-    # created_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    # jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    destination_config: Dict = Field(default={}, sa_column=Column(JSON))
 
 class PipelineCreate(PipelineBase):
     pass
