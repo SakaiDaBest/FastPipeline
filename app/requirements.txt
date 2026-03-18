@@ -22,3 +22,4 @@ retry-requests
 openmeteo-requests
 python-dotenv
 pandas
+apscheduler

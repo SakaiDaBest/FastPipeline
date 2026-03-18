@@ -31,3 +31,5 @@ logs/
 # Local data (since you have a /data folder)
 data/transformed/
 data/raw/*.csv
+
+todo.txt

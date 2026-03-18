@@ -14,16 +14,23 @@ class PipelineBase(SQLModel):
     destination_type: str = Field(max_length=50)
     destination_config: Dict = Field(default={}, sa_column=Column(JSON))
 
+    cron_expression: Optional[str] = Field(default=None, max_length=100)
+
 class PipelineCreate(PipelineBase):
     pass
 
 class Pipelines(PipelineBase, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
     )
-    jobs : List["Jobs"] = Relationship(back_populates="pipeline", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    
+
+    jobs: List["Jobs"] = Relationship(
+        back_populates="pipeline",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    ) 
+
 class JobBase(SQLModel):
     pass
 

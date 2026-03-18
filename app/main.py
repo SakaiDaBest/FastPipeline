@@ -7,10 +7,10 @@ from uuid import UUID
 from .services.etl import run_pipeline
 from .logs import setup_logging
 from contextlib import asynccontextmanager
+from .services.scheduler import scheduler, load_scheduled_pipelines, schedule_pipeline, unschedule_pipeline
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- Startup ---
     queue_handler = setup_logging()
     logger = logging.getLogger("pipeline")
     
@@ -22,9 +22,15 @@ async def lifespan(app: FastAPI):
         raise
 
     logger.info("Initializing API and Database schemas...")
+
+    scheduler.start()
+    load_scheduled_pipelines()
+    logger.info("Scheduler started and pipelines loaded.")
     
     yield  
-    
+
+    scheduler.shutdown()
+    logger.info("Scheduler shut down.")
 
     if queue_handler is not None:
         queue_handler.listener.stop()
@@ -51,6 +57,10 @@ async def createPipelines(pipeline_data: PipelineCreate, db: Session = Depends(g
         db.add(db_pipeline)
         db.commit()
         db.refresh(db_pipeline)
+
+        if db_pipeline.cron_expression:
+            schedule_pipeline(db_pipeline)
+            logger.info(f"Pipeline {db_pipeline.id} scheduled with cron: {db_pipeline.cron_expression}")
         
         logger.info(f"Pipeline created successfully with ID: {db_pipeline.id}")
         return db_pipeline
@@ -86,6 +96,8 @@ async def deletePipeline(pipe_id: UUID, db: Session = Depends(get_db)):
         logger.warning(f"Delete failed: Pipeline {pipe_id} not found")
         raise HTTPException(status_code=404, detail="Pipeline not Found")
     
+    unschedule_pipeline(pipe_id)
+
     db.delete(pipeline)
     db.commit()
     logger.info(f"Pipeline {pipe_id} deleted successfully")

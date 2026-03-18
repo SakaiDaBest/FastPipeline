@@ -1,4 +1,3 @@
-from fastapi import HTTPException
 from sqlmodel import Session
 from ..models import Jobs, Pipelines
 from ..database import engine
@@ -12,147 +11,91 @@ from .transform.weather import cleanWeather
 from zoneinfo import ZoneInfo
 import logging
 
-logger =logging.getLogger("pipeline")
+logger = logging.getLogger("pipeline")
 
 class NotFoundError(Exception):
     pass
 
-def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session): 
-    try:
-        pipeline = db.get(Pipelines, pipe_id)
-        if not pipeline:
-            raise NotFoundError("Pipeline not found")
+class PipelineError(Exception):
+    pass
 
-    except Exception:
-        logger.exception("Pipeline not found")
-        return {"error": "Pipeline cannot be found!"}, 404
-        
-    try:
-        job = db.get(Jobs, job_id)
-        if not job:
-            raise NotFoundError("Job not found")
-            
-    except Exception:
-        logger.exception("Job not found")
-        return {"error": "Job cannot be found!"}, 404
+def run_pipeline(pipe_id: UUID, job_id: UUID, db: Session): 
+    pipeline = db.get(Pipelines, pipe_id)
+    if not pipeline:
+        logger.error(f"Pipeline {pipe_id} not found")
+        return
+
+    job = db.get(Jobs, job_id)
+    if not job:
+        logger.error(f"Job {job_id} not found")
+        return
 
     job.status = "running"
     job.started_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
-    try:
-        db.add(job)
-        db.commit()
-        logger.info(f"Successfully changed status of Job {job.id} to {job.status}")
-    except Exception:
-        logger.exception(f"Failed to change status of Job {job.id}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    db.add(job)
+    db.commit()
+    logger.info(f"Job {job.id} started")
+
     try:
         match pipeline.source_type.upper():
             case "CSV":
                 try:
-                    logger.debug("Reading Source Path for CSV File")
                     df = read_csv(pipeline.source_config["path"])
                 except Exception:
-                    logger.exception(f"{pipeline.source_config["path"]} cannot be found or File is not a CSV!")
-                    raise HTTPException(status_code=404, detail=f"Source Path {pipeline.source_config["path"]} cannot be found or File is not a CSV!")
-                logger.info("Source Path verified and read")
-                
-                logger.debug("Verifying Pipeline Name")
-                try:
-                    if pipeline.name.lower() == "orders":
-                        logger.info("Pipeline Name has been Verified")
-                        logger.info("Cleaning Now")
-                        df = cleanOrders(df)
-                        logger.info("Cleaning has Completed")
-                    elif pipeline.name.lower() == "customers":
-                        logger.info("Pipeline Name has been Verified")
-                        logger.info("Cleaning Now")
-                        df = cleanCustomers(df)
-                        logger.info("Cleaning has Completed")
-                    elif pipeline.name.lower() == "products":
-                        logger.info("Pipeline Name has been Verified")
-                        logger.info("Cleaning Now")
-                        df = cleanProducts(df)
-                        logger.info("Cleaning has Completed")
-                    else: 
-                        logger.error(f"Pipeline Name does not match with available options")
-                        raise HTTPException(status_code=405, detail="Pipeline Not Accepted!")
-                except Exception:
-                    logger.exception(f"Internal Server Error")
-                    raise HTTPException(status_code=500, detail="An Internal Error has Occured")
+                    raise PipelineError(f"Source path {pipeline.source_config['path']} cannot be found or is not a CSV")
 
-                logger.debug("Verifying Pipeline Destination")
-
-                if pipeline.destination_type == "postgres":
-                    db_name = pipeline.destination_config["table"]
-                    if db_name == None:
-                        db_name=pipeline.name+"-"+str(job_id)
-                elif pipeline.destination_type == "CSV":
-                    logger.info(f"Saving to CSV")
-                    df.to_csv(f"./data/transformed/{pipeline.name}-{job.id}.csv", index=False)
+                if pipeline.name.lower() == "orders":
+                    df = cleanOrders(df)
+                elif pipeline.name.lower() == "customers":
+                    df = cleanCustomers(df)
+                elif pipeline.name.lower() == "products":
+                    df = cleanProducts(df)
                 else:
-                    logger.error(f"Pipeline Destination Path does not match with available options")
-                    raise HTTPException(status_code=405, detail="Pipeline Destination Not Accepted!")
-                
-                logger.info("Job has Completed")
+                    raise PipelineError(f"Pipeline name '{pipeline.name}' is not supported")
 
-                job.status = "success"
-                job.records_processed = len(df) 
-            
-            case "API":
-                try:
-                    if pipeline.name == "weather":                       
-                        url = pipeline.source_config["url"]
-                        params = pipeline.source_config["params", {}]
-                        df = cleanWeather(url, params)
-                    else: 
-                        logger.error(f"Pipeline Name does not match with available options")
-                        raise HTTPException(status_code=405, detail="Pipeline Not Accepted!")
-                except Exception:
-                    logger.exception(f"Internal Server Error")
-                    raise HTTPException(status_code=500, detail="An Internal Error has Occured")
-
-                if pipeline.destination_type == "postgres":
-                    db_name = pipeline.destination_config["table"]
-                    if db_name == None:
-                        db_name=pipeline.name+"-"+str(job_id)
-
-                    logger.info("Saving to Database")
+                if pipeline.destination_type.lower() == "postgres":
+                    db_name = pipeline.destination_config.get("table") or f"{pipeline.name}-{job_id}"
+                    logger.info(f"Saving to Database table: {db_name}")
                     df.to_sql(db_name, con=engine, if_exists='replace', index=False)
-                elif pipeline.destination_type == "CSV":
-                    logger.info(f"Saving to CSV")
+                elif pipeline.destination_type.lower() == "csv":
+                    logger.info("Saving to CSV")
                     df.to_csv(f"./data/transformed/{pipeline.name}-{job.id}.csv", index=False)
                 else:
-                    logger.error(f"Pipeline Destination Path does not match with available options")
-                    raise HTTPException(status_code=405, detail="Pipeline Destination Not Accepted!")
-                
-                logger.info("Job has Completed")
+                    raise PipelineError(f"Destination type '{pipeline.destination_type}' is not supported")
 
-                job.status = "success"
-                job.records_processed = len(df) 
+            case "API":
+                if pipeline.name.lower() == "weather":
+                    url = pipeline.source_config["url"]
+                    params = pipeline.source_config.get("params", {})  # Fix was here
+                    df = cleanWeather(url, params)
+                else:
+                    raise PipelineError(f"Pipeline name '{pipeline.name}' is not supported")
 
-
+                if pipeline.destination_type.lower() == "postgres":
+                    db_name = pipeline.destination_config.get("table") or f"{pipeline.name}-{job_id}"
+                    logger.info(f"Saving to Database table: {db_name}")
+                    df.to_sql(db_name, con=engine, if_exists='replace', index=False)
+                elif pipeline.destination_type.lower() == "csv":
+                    logger.info("Saving to CSV")
+                    df.to_csv(f"./data/transformed/{pipeline.name}-{job.id}.csv", index=False)
+                else:
+                    raise PipelineError(f"Destination type '{pipeline.destination_type}' is not supported")
 
             case _:
-                job.status = "failed"
-                job.error_message = "Source Type Not Supported"
-                raise HTTPException(status_code=405, detail=f"Source Type is not Accepted")
-    
-    except Exception:
-        job.status = "failed"
-        logger.exception("Internal Server Error")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+                raise PipelineError(f"Source type '{pipeline.source_type}' is not supported")
 
-    job.finished_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
-    
-    logger.info("Saving Job Details to Database...")
-    try:
+        job.status = "success"
+        job.records_processed = len(df)
+        logger.info(f"Job {job.id} completed successfully, {len(df)} records processed")
+
+    except Exception as e:
+        job.status = "failed"
+        job.error_message = str(e)
+        logger.exception(f"Job {job.id} failed")
+
+    finally:
+        job.finished_at = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
         db.add(job)
         db.commit()
         db.refresh(job)
-    except Exception:
-        logger.exception("Failed to create pipeline in database")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-    
-
-
 
