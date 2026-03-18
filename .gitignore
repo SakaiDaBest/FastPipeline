@@ -33,3 +33,4 @@ data/transformed/
 data/raw/*.csv
 
 todo.txt
+.cache.*
